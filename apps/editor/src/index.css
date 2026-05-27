@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-editor-bg text-editor-text font-sans text-sm;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-editor-panel border border-editor-border;
+  }
+
+  .panel-header {
+    @apply px-3 py-2 border-b border-editor-border font-medium text-xs uppercase tracking-wider text-editor-muted;
+  }
+
+  .toolbar-btn {
+    @apply px-3 py-1.5 hover:bg-editor-border rounded transition-colors text-sm;
+  }
+
+  .input-field {
+    @apply bg-editor-bg border border-editor-border rounded px-2 py-1 text-sm focus:outline-none focus:border-editor-accent;
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "tactical-forge",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @tactical-forge/editor dev",
+    "build": "pnpm --filter @tactical-forge/shared build && pnpm --filter @tactical-forge/engine build && pnpm --filter @tactical-forge/ai build && pnpm --filter @tactical-forge/editor build",
+    "build:shared": "pnpm --filter @tactical-forge/shared build",
+    "build:engine": "pnpm --filter @tactical-forge/engine build",
+    "build:ai": "pnpm --filter @tactical-forge/ai build",
+    "build:editor": "pnpm --filter @tactical-forge/editor build",
+    "lint": "pnpm -r lint",
+    "clean": "pnpm -r exec rm -rf dist node_modules"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
