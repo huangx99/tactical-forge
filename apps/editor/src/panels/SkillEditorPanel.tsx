@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AssetEditorWindow } from '../components/AssetEditorWindow';
 import { InlineRename } from '../components/InlineRename';
+import { NumberInput } from '../components/NumberInput';
 import { useEditorStore } from '../stores/editorStore';
 import { useAssetStore } from '../stores/assetStore';
 
@@ -105,10 +106,10 @@ export function SkillEditorWindow() {
               <textarea className="input-field w-full h-16 resize-y" value={selected.description} onChange={(e) => updateSkill(selected.id, { description: e.target.value })} />
             </div>
             <div className="grid grid-cols-4 gap-4">
-              <div><label className="text-xs text-editor-muted block mb-1">MP消耗</label><input className="input-field w-full" type="number" value={selected.mpCost} onChange={(e) => updateSkill(selected.id, { mpCost: Number(e.target.value) })} /></div>
-              <div><label className="text-xs text-editor-muted block mb-1">冷却(秒)</label><input className="input-field w-full" type="number" value={selected.cooldown} onChange={(e) => updateSkill(selected.id, { cooldown: Number(e.target.value) })} /></div>
-              <div><label className="text-xs text-editor-muted block mb-1">施法时间</label><input className="input-field w-full" type="number" value={selected.castTime} onChange={(e) => updateSkill(selected.id, { castTime: Number(e.target.value) })} /></div>
-              <div><label className="text-xs text-editor-muted block mb-1">范围</label><input className="input-field w-full" type="number" value={selected.range} onChange={(e) => updateSkill(selected.id, { range: Number(e.target.value) })} /></div>
+              <div><label className="text-xs text-editor-muted block mb-1">MP消耗</label><NumberInput className="input-field w-full" value={selected.mpCost} onChange={(v) => updateSkill(selected.id, { mpCost: v })} /></div>
+              <div><label className="text-xs text-editor-muted block mb-1">冷却(秒)</label><NumberInput className="input-field w-full" value={selected.cooldown} onChange={(v) => updateSkill(selected.id, { cooldown: v })} /></div>
+              <div><label className="text-xs text-editor-muted block mb-1">施法时间</label><NumberInput className="input-field w-full" value={selected.castTime} onChange={(v) => updateSkill(selected.id, { castTime: v })} /></div>
+              <div><label className="text-xs text-editor-muted block mb-1">范围</label><NumberInput className="input-field w-full" value={selected.range} onChange={(v) => updateSkill(selected.id, { range: v })} /></div>
             </div>
             {/* Effects */}
             <div>
@@ -127,9 +128,9 @@ export function SkillEditorWindow() {
                     <option value="heal">治疗</option>
                     <option value="applyStatus">施加状态</option>
                   </select>
-                  <input className="input-field w-20 text-xs" type="number" value={eff.value} onChange={(e) => {
+                  <NumberInput className="input-field w-20 text-xs" value={eff.value} onChange={(v) => {
                     const newEff = [...selected.effects];
-                    newEff[i] = { ...eff, value: Number(e.target.value) };
+                    newEff[i] = { ...eff, value: v };
                     updateSkill(selected.id, { effects: newEff });
                   }} />
                   <button className="text-xs text-editor-muted hover:text-editor-accent" onClick={() => updateSkill(selected.id, { effects: selected.effects.filter((_, j) => j !== i) })}>x</button>

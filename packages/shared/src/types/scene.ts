@@ -28,6 +28,7 @@ export type ObjectType = 'player' | 'npc' | 'enemy' | 'item' | 'trigger' | 'prop
 
 export interface GameObject {
   id: string;
+  name?: string;
   type: ObjectType;
   position: { x: number; y: number };
   sprite: string;

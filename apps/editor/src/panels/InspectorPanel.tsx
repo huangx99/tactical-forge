@@ -3,6 +3,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useSceneStore } from '../stores/sceneStore';
 import { useBlueprintStore } from '../stores/blueprintStore';
 import { useAssetStore } from '../stores/assetStore';
+import { NumberInput } from '../components/NumberInput';
 import type { ComponentData } from '@tactical-forge/shared';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -24,10 +25,14 @@ const QUICK_ADD: { name: string; label: string; data: ComponentData }[] = [
   { name: 'playerController', label: '控制器', data: { speed: 3, jumpForce: 8 } },
   { name: 'inventory', label: '背包', data: { capacity: 20, slots: [] } },
   { name: 'equipment', label: '装备', data: { slots: [{ slotId: 'mainHand', itemId: null }, { slotId: 'head', itemId: null }, { slotId: 'body', itemId: null }] } },
-  { name: 'collider', label: '碰撞体', data: { shape: 'box', w: 24, h: 24 } },
+  { name: 'collider', label: '碰撞体', data: { shape: 'box', w: 24, h: 24, mass: 1, isKinematic: false } },
   { name: 'dialogueTrigger', label: '对话', data: { blueprintId: '', interactRange: 32 } },
   { name: 'combat', label: '战斗', data: { attack: 5, defense: 2, blueprintId: '' } },
   { name: 'skillBar', label: '技能栏', data: { slots: [] } },
+  { name: 'blueprint', label: '蓝图', data: { blueprintIds: [], variables: {} } },
+  { name: 'tag', label: '标签', data: { tags: [] } },
+  { name: 'statusEffects', label: '状态效果', data: { activeEffects: [] } },
+  { name: 'loot', label: '掉落', data: { lootTableId: null } },
 ];
 
 // --- Inline component renderers ---
@@ -47,11 +52,11 @@ function HealthView({ data, onChange }: { data: Record<string, unknown>; onChang
       <div className="grid grid-cols-2 gap-1">
         <div>
           <label className="text-[10px] text-editor-muted">当前</label>
-          <input className="input-field w-full text-xs" type="number" value={current} onChange={(e) => onChange({ ...data, current: Number(e.target.value) })} />
+          <NumberInput className="input-field w-full text-xs" value={current} onChange={(v) => onChange({ ...data, current: v })} />
         </div>
         <div>
           <label className="text-[10px] text-editor-muted">最大</label>
-          <input className="input-field w-full text-xs" type="number" value={max} onChange={(e) => onChange({ ...data, max: Number(e.target.value) })} />
+          <NumberInput className="input-field w-full text-xs" value={max} onChange={(v) => onChange({ ...data, max: v })} />
         </div>
       </div>
     </div>
@@ -68,11 +73,10 @@ function StatsView({ data, onChange }: { data: Record<string, unknown>; onChange
         {Object.entries(base).map(([k, v]) => (
           <div key={k} className="flex items-center gap-1">
             <span className="text-[10px] text-editor-muted w-6">{STAT_LABELS[k] ?? k}</span>
-            <input
+            <NumberInput
               className="input-field w-full text-xs"
-              type="number"
-              value={v}
-              onChange={(e) => onChange({ ...data, base: { ...base, [k]: Number(e.target.value) } })}
+              value={Number(v) || 0}
+              onChange={(val) => onChange({ ...data, base: { ...base, [k]: val } })}
             />
           </div>
         ))}
@@ -85,11 +89,10 @@ function StatsView({ data, onChange }: { data: Record<string, unknown>; onChange
             return (
               <div key={k} className="flex items-center gap-1">
                 <span className="text-[10px] text-editor-accent w-16">{k}</span>
-                <input
+                <NumberInput
                   className="input-field flex-1 text-xs"
-                  type="number"
                   value={Number(val) || 0}
-                  onChange={(e) => onChange({ ...data, custom: { ...custom, [k]: { type: 'number', value: Number(e.target.value) } } })}
+                  onChange={(v) => onChange({ ...data, custom: { ...custom, [k]: { type: 'number', value: v } } })}
                 />
               </div>
             );
@@ -105,11 +108,11 @@ function PlayerControllerView({ data, onChange }: { data: Record<string, unknown
     <div className="grid grid-cols-2 gap-2">
       <div>
         <label className="text-[10px] text-editor-muted">移动速度</label>
-        <input className="input-field w-full text-xs" type="number" value={Number(data.speed) || 3} onChange={(e) => onChange({ ...data, speed: Number(e.target.value) })} />
+        <NumberInput className="input-field w-full text-xs" value={Number(data.speed) || 3} onChange={(v) => onChange({ ...data, speed: v })} />
       </div>
       <div>
         <label className="text-[10px] text-editor-muted">跳跃力</label>
-        <input className="input-field w-full text-xs" type="number" value={Number(data.jumpForce) || 8} onChange={(e) => onChange({ ...data, jumpForce: Number(e.target.value) })} />
+        <NumberInput className="input-field w-full text-xs" value={Number(data.jumpForce) || 8} onChange={(v) => onChange({ ...data, jumpForce: v })} />
       </div>
     </div>
   );
@@ -125,23 +128,31 @@ function ColliderView({ data, onChange }: { data: Record<string, unknown>; onCha
       {data.shape === 'circle' ? (
         <div>
           <label className="text-[10px] text-editor-muted">半径</label>
-          <input className="input-field w-full text-xs" type="number" value={Number(data.radius) || 12} onChange={(e) => onChange({ ...data, radius: Number(e.target.value) })} />
+          <NumberInput className="input-field w-full text-xs" value={Number(data.radius) || 12} onChange={(v) => onChange({ ...data, radius: v })} />
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-1">
           <div>
             <label className="text-[10px] text-editor-muted">宽</label>
-            <input className="input-field w-full text-xs" type="number" value={Number(data.w) || 24} onChange={(e) => onChange({ ...data, w: Number(e.target.value) })} />
+            <NumberInput className="input-field w-full text-xs" value={Number(data.w) || 24} onChange={(v) => onChange({ ...data, w: v })} />
           </div>
           <div>
             <label className="text-[10px] text-editor-muted">高</label>
-            <input className="input-field w-full text-xs" type="number" value={Number(data.h) || 24} onChange={(e) => onChange({ ...data, h: Number(e.target.value) })} />
+            <NumberInput className="input-field w-full text-xs" value={Number(data.h) || 24} onChange={(v) => onChange({ ...data, h: v })} />
           </div>
         </div>
       )}
       <label className="flex items-center gap-1 text-[10px] text-editor-muted">
         <input type="checkbox" checked={!!data.isTrigger} onChange={(e) => onChange({ ...data, isTrigger: e.target.checked })} />
         触发器
+      </label>
+      <div>
+        <label className="text-[10px] text-editor-muted">质量</label>
+        <NumberInput className="input-field w-full text-xs" value={Number(data.mass) || 1} onChange={(v) => onChange({ ...data, mass: Math.max(0.01, v) })} />
+      </div>
+      <label className="flex items-center gap-1 text-[10px] text-editor-muted">
+        <input type="checkbox" checked={!!data.isKinematic} onChange={(e) => onChange({ ...data, isKinematic: e.target.checked })} />
+        运动学刚体（不受碰撞推动）
       </label>
     </div>
   );
@@ -169,7 +180,7 @@ function DialogueTriggerView({ data, onChange }: { data: Record<string, unknown>
       </div>
       <div>
         <label className="text-[10px] text-editor-muted">交互范围</label>
-        <input className="input-field w-full text-xs" type="number" value={Number(data.interactRange) || 32} onChange={(e) => onChange({ ...data, interactRange: Number(e.target.value) })} />
+        <NumberInput className="input-field w-full text-xs" value={Number(data.interactRange) || 32} onChange={(v) => onChange({ ...data, interactRange: v })} />
       </div>
     </div>
   );
@@ -186,11 +197,11 @@ function CombatView({ data, onChange }: { data: Record<string, unknown>; onChang
       <div className="grid grid-cols-2 gap-1">
         <div>
           <label className="text-[10px] text-editor-muted">攻击力</label>
-          <input className="input-field w-full text-xs" type="number" value={Number(data.attack) || 0} onChange={(e) => onChange({ ...data, attack: Number(e.target.value) })} />
+          <NumberInput className="input-field w-full text-xs" value={Number(data.attack) || 0} onChange={(v) => onChange({ ...data, attack: v })} />
         </div>
         <div>
           <label className="text-[10px] text-editor-muted">防御力</label>
-          <input className="input-field w-full text-xs" type="number" value={Number(data.defense) || 0} onChange={(e) => onChange({ ...data, defense: Number(e.target.value) })} />
+          <NumberInput className="input-field w-full text-xs" value={Number(data.defense) || 0} onChange={(v) => onChange({ ...data, defense: v })} />
         </div>
       </div>
       <div>
@@ -321,6 +332,199 @@ function EquipmentView({ data, onChange }: { data: Record<string, unknown>; onCh
 
 // --- Component renderer dispatcher ---
 
+function BlueprintView({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void }) {
+  const { openAssetEditorWindow } = useEditorStore();
+  const { blueprints } = useBlueprintStore();
+  const blueprintIds = (data.blueprintIds as string[]) ?? [];
+  const variables = (data.variables as Record<string, unknown>) ?? {};
+
+  const addBlueprint = (id: string) => {
+    if (blueprintIds.includes(id)) return;
+    onChange({ ...data, blueprintIds: [...blueprintIds, id] });
+  };
+
+  const removeBlueprint = (id: string) => {
+    onChange({ ...data, blueprintIds: blueprintIds.filter((b) => b !== id) });
+  };
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-editor-muted">{blueprintIds.length} 个蓝图</span>
+        <button className="text-[10px] text-editor-accent hover:underline" onClick={() => openAssetEditorWindow('blueprint')}>管理蓝图</button>
+      </div>
+      {blueprintIds.map((id) => {
+        const bp = blueprints.find((b) => b.id === id);
+        return (
+          <div key={id} className="flex items-center gap-1 text-[10px]">
+            <span className="text-editor-accent flex-1 truncate">{bp?.name ?? id}</span>
+            <button className="text-editor-muted hover:text-red-400" onClick={() => removeBlueprint(id)}>x</button>
+          </div>
+        );
+      })}
+      {blueprints.length > 0 && (
+        <select
+          className="input-field w-full text-[10px]"
+          value=""
+          onChange={(e) => { if (e.target.value) addBlueprint(e.target.value); }}
+        >
+          <option value="">+ 添加蓝图...</option>
+          {blueprints.filter((b) => !blueprintIds.includes(b.id)).map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </select>
+      )}
+      {blueprints.length === 0 && (
+        <button className="text-[10px] text-editor-accent hover:underline" onClick={() => openAssetEditorWindow('blueprint')}>
+          先创建蓝图
+        </button>
+      )}
+      {Object.keys(variables).length > 0 && (
+        <div className="mt-1">
+          <span className="text-[10px] text-editor-muted">变量:</span>
+          {Object.entries(variables).map(([k, v]) => (
+            <div key={k} className="flex items-center gap-1 text-[10px]">
+              <span className="text-editor-muted w-16 truncate">{k}</span>
+              <span className="text-editor-text">{String(v)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TagView({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void }) {
+  const tags = (data.tags as string[]) ?? [];
+  const [newTag, setNewTag] = useState('');
+
+  const addTag = () => {
+    const t = newTag.trim();
+    if (t && !tags.includes(t)) {
+      onChange({ ...data, tags: [...tags, t] });
+      setNewTag('');
+    }
+  };
+
+  const removeTag = (tag: string) => {
+    onChange({ ...data, tags: tags.filter((t) => t !== tag) });
+  };
+
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap gap-1">
+        {tags.map((tag) => (
+          <span key={tag} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-editor-border rounded text-[10px] text-editor-text">
+            {tag}
+            <button className="text-editor-muted hover:text-red-400 ml-0.5" onClick={() => removeTag(tag)}>x</button>
+          </span>
+        ))}
+        {tags.length === 0 && <span className="text-[10px] text-editor-muted">无标签</span>}
+      </div>
+      <div className="flex gap-1">
+        <input
+          className="input-field flex-1 text-[10px]"
+          placeholder="新标签..."
+          value={newTag}
+          onChange={(e) => setNewTag(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') addTag(); }}
+        />
+        <button className="px-1.5 py-0.5 bg-editor-border rounded text-[10px] hover:bg-editor-accent" onClick={addTag}>+</button>
+      </div>
+    </div>
+  );
+}
+
+function StatusEffectsView({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void }) {
+  const { statuses } = useAssetStore();
+  const { openAssetEditorWindow } = useEditorStore();
+  const activeEffects = (data.activeEffects as Array<{ statusId: string; remainingDuration: number; stacks: number }>) ?? [];
+
+  const addEffect = (statusId: string) => {
+    if (activeEffects.some((e) => e.statusId === statusId)) return;
+    const def = statuses.find((s) => s.id === statusId);
+    onChange({ ...data, activeEffects: [...activeEffects, { statusId, remainingDuration: def?.duration ?? 0, stacks: 1 }] });
+  };
+
+  const removeEffect = (statusId: string) => {
+    onChange({ ...data, activeEffects: activeEffects.filter((e) => e.statusId !== statusId) });
+  };
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-editor-muted">{activeEffects.length} 个状态</span>
+        <button className="text-[10px] text-editor-accent hover:underline" onClick={() => openAssetEditorWindow('statusEffect')}>管理状态</button>
+      </div>
+      {activeEffects.map((eff) => {
+        const def = statuses.find((s) => s.id === eff.statusId);
+        return (
+          <div key={eff.statusId} className="flex items-center gap-1 text-[10px]">
+            <span className={`flex-1 truncate ${def?.type === 'buff' ? 'text-green-400' : def?.type === 'debuff' ? 'text-red-400' : 'text-editor-accent'}`}>
+              {def?.name ?? eff.statusId}
+            </span>
+            {def?.duration && <span className="text-editor-muted shrink-0">{eff.remainingDuration}s</span>}
+            {eff.stacks > 1 && <span className="text-editor-muted shrink-0">x{eff.stacks}</span>}
+            <button className="text-editor-muted hover:text-red-400" onClick={() => removeEffect(eff.statusId)}>x</button>
+          </div>
+        );
+      })}
+      {statuses.length > 0 && (
+        <select
+          className="input-field w-full text-[10px]"
+          value=""
+          onChange={(e) => { if (e.target.value) addEffect(e.target.value); }}
+        >
+          <option value="">+ 添加状态...</option>
+          {statuses.filter((s) => !activeEffects.some((e) => e.statusId === s.id)).map((s) => (
+            <option key={s.id} value={s.id}>{s.name} ({s.type === 'buff' ? '增益' : '减益'})</option>
+          ))}
+        </select>
+      )}
+      {statuses.length === 0 && (
+        <button className="text-[10px] text-editor-accent hover:underline" onClick={() => openAssetEditorWindow('statusEffect')}>
+          先创建状态效果
+        </button>
+      )}
+    </div>
+  );
+}
+
+function LootView({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void }) {
+  const { lootTables } = useAssetStore();
+  const { openAssetEditorWindow } = useEditorStore();
+  const lootTableId = String(data.lootTableId ?? '');
+  const table = lootTables.find((t) => t.id === lootTableId);
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-editor-muted">掉落表</span>
+        <button className="text-[10px] text-editor-accent hover:underline" onClick={() => openAssetEditorWindow('lootTable')}>管理掉落表</button>
+      </div>
+      <select
+        className="input-field w-full text-[10px]"
+        value={lootTableId}
+        onChange={(e) => onChange({ ...data, lootTableId: e.target.value || null })}
+      >
+        <option value="">未指定</option>
+        {lootTables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+      </select>
+      {table && (
+        <div className="text-[10px] text-editor-muted">
+          {table.entries.length} 个掉落项, 投掷 {table.rollCount.min}-{table.rollCount.max} 次
+          {table.guaranteed.length > 0 && `, 保底 ${table.guaranteed.length} 项`}
+        </div>
+      )}
+      {lootTables.length === 0 && (
+        <button className="text-[10px] text-editor-accent hover:underline" onClick={() => openAssetEditorWindow('lootTable')}>
+          先创建掉落表
+        </button>
+      )}
+    </div>
+  );
+}
+
 function SkillBarView({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void }) {
   const { skills } = useAssetStore();
   const { openAssetEditorWindow } = useEditorStore();
@@ -383,11 +587,15 @@ function ComponentInlineView({ compKey, data, onChange }: { compKey: string; dat
     case 'inventory': return <InventoryView data={data} onChange={onChange} />;
     case 'equipment': return <EquipmentView data={data} onChange={onChange} />;
     case 'skillBar': return <SkillBarView data={data} onChange={onChange} />;
+    case 'blueprint': return <BlueprintView data={data} onChange={onChange} />;
+    case 'tag': return <TagView data={data} onChange={onChange} />;
+    case 'statusEffects': return <StatusEffectsView data={data} onChange={onChange} />;
+    case 'loot': return <LootView data={data} onChange={onChange} />;
     default: return null;
   }
 }
 
-const HAS_INLINE_VIEW = new Set(['health', 'stats', 'playerController', 'collider', 'dialogueTrigger', 'combat', 'inventory', 'equipment', 'skillBar']);
+const HAS_INLINE_VIEW = new Set(['health', 'stats', 'playerController', 'collider', 'dialogueTrigger', 'combat', 'inventory', 'equipment', 'skillBar', 'blueprint', 'tag', 'statusEffects', 'loot']);
 
 // --- Main Panel ---
 
@@ -453,6 +661,12 @@ export function InspectorPanel() {
       </div>
 
       <div className="p-3 space-y-3 overflow-auto flex-1">
+        {/* Name */}
+        <div>
+          <label className="text-xs text-editor-muted block mb-1">名称</label>
+          <input className="input-field w-full" value={selectedObj.name ?? ''} onChange={(e) => handleFieldChange('name', e.target.value)} placeholder="对象名称（可选）" />
+        </div>
+
         {/* Type */}
         <div>
           <label className="text-xs text-editor-muted block mb-1">类型</label>
@@ -477,11 +691,11 @@ export function InspectorPanel() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-editor-muted">X</label>
-              <input className="input-field w-full" type="number" value={selectedObj.position.x} onChange={(e) => handleFieldChange('position', { ...selectedObj.position, x: Number(e.target.value) })} />
+              <NumberInput className="input-field w-full" value={selectedObj.position.x} onChange={(v) => handleFieldChange('position', { ...selectedObj.position, x: v })} />
             </div>
             <div>
               <label className="text-xs text-editor-muted">Y</label>
-              <input className="input-field w-full" type="number" value={selectedObj.position.y} onChange={(e) => handleFieldChange('position', { ...selectedObj.position, y: Number(e.target.value) })} />
+              <NumberInput className="input-field w-full" value={selectedObj.position.y} onChange={(v) => handleFieldChange('position', { ...selectedObj.position, y: v })} />
             </div>
           </div>
         </div>

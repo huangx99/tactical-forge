@@ -2,6 +2,7 @@ import { System } from '../ecs/System';
 import { Entity } from '../ecs/Entity';
 import { Transform } from '../components/Transform';
 import { Collider } from '../components/Collider';
+import { EventBus } from '../events/EventBus';
 
 export interface CollisionEvent {
   entityA: Entity;
@@ -11,10 +12,18 @@ export interface CollisionEvent {
 export class PhysicsSystem extends System {
   readonly name = 'physics';
   private collisionEvents: CollisionEvent[] = [];
+  private prevCollisions = new Set<string>();
+  private eventBus?: EventBus;
+
+  constructor(eventBus?: EventBus) {
+    super();
+    this.eventBus = eventBus;
+  }
 
   update(entities: Entity[]): void {
     this.collisionEvents = [];
     const collidables = entities.filter(e => e.hasComponent(Collider) && e.hasComponent(Transform));
+    const currentCollisions = new Set<string>();
 
     for (let i = 0; i < collidables.length; i++) {
       for (let j = i + 1; j < collidables.length; j++) {
@@ -29,17 +38,41 @@ export class PhysicsSystem extends System {
         if (this.checkCollision(a, b)) {
           this.collisionEvents.push({ entityA: a, entityB: b });
 
-          // Resolve solid collision (push apart)
+          const key = this.collisionKey(a.id, b.id);
+          currentCollisions.add(key);
+
+          // Emit collision.enter if new
+          if (!this.prevCollisions.has(key)) {
+            this.eventBus?.emit('collision.enter', { entityId: a.id, otherId: b.id }, a.id);
+            this.eventBus?.emit('collision.enter', { entityId: b.id, otherId: a.id }, b.id);
+          }
+
+          // Resolve solid collision (push apart) — skip if either is trigger
           if (!cA.isTrigger && !cB.isTrigger) {
             this.resolveCollision(a, b);
           }
         }
       }
     }
+
+    // Emit collision.exit for pairs that are no longer colliding
+    for (const key of this.prevCollisions) {
+      if (!currentCollisions.has(key)) {
+        const [idA, idB] = key.split('|');
+        this.eventBus?.emit('collision.exit', { entityId: idA, otherId: idB }, idA);
+        this.eventBus?.emit('collision.exit', { entityId: idB, otherId: idA }, idB);
+      }
+    }
+
+    this.prevCollisions = currentCollisions;
   }
 
   getCollisionEvents(): CollisionEvent[] {
     return this.collisionEvents;
+  }
+
+  private collisionKey(a: string, b: string): string {
+    return a < b ? `${a}|${b}` : `${b}|${a}`;
   }
 
   checkCollision(a: Entity, b: Entity): boolean {
@@ -68,6 +101,9 @@ export class PhysicsSystem extends System {
     const cA = a.getComponent(Collider)!;
     const cB = b.getComponent(Collider)!;
 
+    // Both kinematic — no resolution needed
+    if (cA.isKinematic && cB.isKinematic) return;
+
     // Calculate overlap and push apart
     const dx = tB.x - tA.x;
     const dy = tB.y - tA.y;
@@ -87,12 +123,20 @@ export class PhysicsSystem extends System {
     }
 
     if (overlap > 0) {
-      const pushX = nx * overlap * 0.5;
-      const pushY = ny * overlap * 0.5;
-      tA.x -= pushX;
-      tA.y -= pushY;
-      tB.x += pushX;
-      tB.y += pushY;
+      const massA = cA.mass || 1;
+      const massB = cB.mass || 1;
+      const totalMass = massA + massB;
+
+      // Kinematic bodies don't move; the other takes full push
+      let ratioA = cA.isKinematic ? 0 : massB / totalMass;
+      let ratioB = cB.isKinematic ? 0 : massA / totalMass;
+
+      const pushX = nx * overlap;
+      const pushY = ny * overlap;
+      tA.x -= pushX * ratioA;
+      tA.y -= pushY * ratioA;
+      tB.x += pushX * ratioB;
+      tB.y += pushY * ratioB;
     }
   }
 

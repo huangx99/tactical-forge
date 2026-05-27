@@ -19,9 +19,17 @@ export interface BlueprintEdge {
   sourcePort: string;
   target: string;
   targetPort: string;
+  type: 'execution' | 'data';
 }
 
 export type NodeCategory = 'event' | 'condition' | 'action' | 'flow';
+
+export interface DataPinDef {
+  id: string;
+  label: string;
+  dataType: 'number' | 'string' | 'boolean' | 'any';
+  defaultValue?: unknown;
+}
 
 export interface NodeTypeDef {
   type: string;
@@ -30,6 +38,8 @@ export interface NodeTypeDef {
   description: string;
   inputs: PortDef[];
   outputs: PortDef[];
+  dataInputs?: DataPinDef[];
+  dataOutputs?: DataPinDef[];
   defaultData?: Record<string, unknown>;
 }
 

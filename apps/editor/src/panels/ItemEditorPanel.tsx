@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AssetEditorWindow } from '../components/AssetEditorWindow';
 import { InlineRename } from '../components/InlineRename';
+import { NumberInput } from '../components/NumberInput';
 import { useEditorStore } from '../stores/editorStore';
 import { useAssetStore, type ItemDef } from '../stores/assetStore';
 
@@ -137,11 +138,11 @@ export function ItemEditorWindow() {
             <div className="grid grid-cols-4 gap-4">
               <div>
                 <label className="text-xs text-editor-muted block mb-1">购买价格</label>
-                <input className="input-field w-full" type="number" value={selected.buyPrice} onChange={(e) => updateItem(selected.id, { buyPrice: Number(e.target.value) })} />
+                <NumberInput className="input-field w-full" value={selected.buyPrice} onChange={(v) => updateItem(selected.id, { buyPrice: v })} />
               </div>
               <div>
                 <label className="text-xs text-editor-muted block mb-1">出售价格</label>
-                <input className="input-field w-full" type="number" value={selected.sellPrice} onChange={(e) => updateItem(selected.id, { sellPrice: Number(e.target.value) })} />
+                <NumberInput className="input-field w-full" value={selected.sellPrice} onChange={(v) => updateItem(selected.id, { sellPrice: v })} />
               </div>
               <div>
                 <label className="text-xs text-editor-muted block mb-1">可堆叠</label>
@@ -152,7 +153,7 @@ export function ItemEditorWindow() {
               </div>
               <div>
                 <label className="text-xs text-editor-muted block mb-1">最大堆叠</label>
-                <input className="input-field w-full" type="number" value={selected.maxStack} onChange={(e) => updateItem(selected.id, { maxStack: Number(e.target.value) })} />
+                <NumberInput className="input-field w-full" value={selected.maxStack} onChange={(v) => updateItem(selected.id, { maxStack: v })} />
               </div>
             </div>
             {/* Stats */}
@@ -173,11 +174,10 @@ export function ItemEditorWindow() {
               {Object.entries(selected.stats).map(([key, val]) => (
                 <div key={key} className="flex items-center gap-2 mb-1">
                   <span className="text-xs text-editor-muted w-16">{key}</span>
-                  <input
+                  <NumberInput
                     className="input-field flex-1"
-                    type="number"
-                    value={val}
-                    onChange={(e) => updateItem(selected.id, { stats: { ...selected.stats, [key]: Number(e.target.value) } })}
+                    value={Number(val) || 0}
+                    onChange={(v) => updateItem(selected.id, { stats: { ...selected.stats, [key]: v } })}
                   />
                   <button
                     className="text-xs text-editor-muted hover:text-editor-accent"

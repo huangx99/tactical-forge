@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AssetEditorWindow } from '../components/AssetEditorWindow';
 import { InlineRename } from '../components/InlineRename';
+import { NumberInput } from '../components/NumberInput';
 import { useEditorStore } from '../stores/editorStore';
 import { useAssetStore } from '../stores/assetStore';
 
@@ -63,8 +64,8 @@ export function LootTableEditorWindow() {
         {selected ? (
           <div className="flex-1 p-4 overflow-auto space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-xs text-editor-muted block mb-1">最小掉落数</label><input className="input-field w-full" type="number" value={selected.rollCount.min} onChange={(e) => updateLootTable(selected.id, { rollCount: { ...selected.rollCount, min: Number(e.target.value) } })} /></div>
-              <div><label className="text-xs text-editor-muted block mb-1">最大掉落数</label><input className="input-field w-full" type="number" value={selected.rollCount.max} onChange={(e) => updateLootTable(selected.id, { rollCount: { ...selected.rollCount, max: Number(e.target.value) } })} /></div>
+              <div><label className="text-xs text-editor-muted block mb-1">最小掉落数</label><NumberInput className="input-field w-full" value={selected.rollCount.min} onChange={(v) => updateLootTable(selected.id, { rollCount: { ...selected.rollCount, min: v } })} /></div>
+              <div><label className="text-xs text-editor-muted block mb-1">最大掉落数</label><NumberInput className="input-field w-full" value={selected.rollCount.max} onChange={(v) => updateLootTable(selected.id, { rollCount: { ...selected.rollCount, max: v } })} /></div>
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -74,9 +75,9 @@ export function LootTableEditorWindow() {
               {selected.entries.map((entry, i) => (
                 <div key={i} className="flex items-center gap-2 mb-1 p-2 bg-editor-bg rounded">
                   <input className="input-field flex-1 text-xs" placeholder="物品ID" value={entry.itemId} onChange={(e) => { const ne = [...selected.entries]; ne[i] = { ...entry, itemId: e.target.value }; updateLootTable(selected.id, { entries: ne }); }} />
-                  <input className="input-field w-16 text-xs" type="number" placeholder="最小" value={entry.min} onChange={(e) => { const ne = [...selected.entries]; ne[i] = { ...entry, min: Number(e.target.value) }; updateLootTable(selected.id, { entries: ne }); }} />
-                  <input className="input-field w-16 text-xs" type="number" placeholder="最大" value={entry.max} onChange={(e) => { const ne = [...selected.entries]; ne[i] = { ...entry, max: Number(e.target.value) }; updateLootTable(selected.id, { entries: ne }); }} />
-                  <input className="input-field w-16 text-xs" type="number" placeholder="权重" value={entry.weight} onChange={(e) => { const ne = [...selected.entries]; ne[i] = { ...entry, weight: Number(e.target.value) }; updateLootTable(selected.id, { entries: ne }); }} />
+                  <NumberInput className="input-field w-16 text-xs" placeholder="最小" value={entry.min} onChange={(v) => { const ne = [...selected.entries]; ne[i] = { ...entry, min: v }; updateLootTable(selected.id, { entries: ne }); }} />
+                  <NumberInput className="input-field w-16 text-xs" placeholder="最大" value={entry.max} onChange={(v) => { const ne = [...selected.entries]; ne[i] = { ...entry, max: v }; updateLootTable(selected.id, { entries: ne }); }} />
+                  <NumberInput className="input-field w-16 text-xs" placeholder="权重" value={entry.weight} onChange={(v) => { const ne = [...selected.entries]; ne[i] = { ...entry, weight: v }; updateLootTable(selected.id, { entries: ne }); }} />
                   <button className="text-xs text-editor-muted hover:text-editor-accent" onClick={() => updateLootTable(selected.id, { entries: selected.entries.filter((_, j) => j !== i) })}>x</button>
                 </div>
               ))}

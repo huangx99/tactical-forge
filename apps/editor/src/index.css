@@ -25,3 +25,10 @@
     @apply bg-editor-bg border border-editor-border rounded px-2 py-1 text-sm focus:outline-none focus:border-editor-accent;
   }
 }
+
+/* ReactFlow edge selection highlight */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #e94560 !important;
+  stroke-width: 3 !important;
+  filter: drop-shadow(0 0 4px rgba(233, 69, 96, 0.5));
+}

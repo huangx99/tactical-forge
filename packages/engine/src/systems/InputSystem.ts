@@ -54,7 +54,10 @@ export class InputSystem extends System {
   update(_entities: Entity[]): void {
     // Process interact input
     this.state.interact = this.state.justPressed.has('e') || this.state.justPressed.has('E') || this.state.justPressed.has('Enter');
-    // Clear just-pressed/released at end of frame
+    // NOTE: justPressed/justReleased are cleared by InputActionMapper after it reads them
+  }
+
+  clearTransient(): void {
     this.state.justPressed.clear();
     this.state.justReleased.clear();
   }
@@ -65,6 +68,22 @@ export class InputSystem extends System {
 
   isKeyJustPressed(key: string): boolean {
     return this.state.justPressed.has(key) || this.state.justPressed.has(key.toLowerCase()) || this.state.justPressed.has(key.toUpperCase());
+  }
+
+  isKeyJustReleased(key: string): boolean {
+    return this.state.justReleased.has(key) || this.state.justReleased.has(key.toLowerCase()) || this.state.justReleased.has(key.toUpperCase());
+  }
+
+  getJustPressedKeys(): string[] {
+    return [...this.state.justPressed];
+  }
+
+  getJustReleasedKeys(): string[] {
+    return [...this.state.justReleased];
+  }
+
+  getHeldKeys(): string[] {
+    return [...this.state.keys];
   }
 
   destroy(): void {

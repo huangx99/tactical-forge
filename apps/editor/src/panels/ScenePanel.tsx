@@ -3,9 +3,10 @@ import { useSceneStore } from '../stores/sceneStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useTilemapStore, type EditorTool } from '../stores/tilemapStore';
 import { generateId } from '@tactical-forge/shared';
+import { InlineRename } from '../components/InlineRename';
 
 export function ScenePanel() {
-  const { scenes, activeSceneId, setActiveScene, addScene, removeScene, updateScene, addObject, removeObject } = useSceneStore();
+  const { scenes, activeSceneId, setActiveScene, addScene, removeScene, updateScene, addObject, removeObject, updateObject } = useSceneStore();
   const { selectObject, selectedObjectId } = useEditorStore();
   const { setActiveTool } = useTilemapStore();
   const [editingSceneName, setEditingSceneName] = useState<string | null>(null);
@@ -146,7 +147,11 @@ export function ScenePanel() {
                   obj.type === 'item' ? 'bg-yellow-400' :
                   'bg-gray-400'
                 }`} />
-                <span className="text-sm flex-1 truncate">{obj.id.slice(0, 8)}</span>
+                <InlineRename
+                  name={obj.name || obj.id.slice(0, 8)}
+                  onRename={(name) => updateObject(activeScene.id, obj.id, { name })}
+                  className="text-sm flex-1 truncate"
+                />
                 <span className="text-xs text-editor-muted mr-2">{obj.type}</span>
                 <button
                   className="text-editor-muted hover:text-editor-accent text-xs opacity-0 group-hover:opacity-100 transition-opacity"

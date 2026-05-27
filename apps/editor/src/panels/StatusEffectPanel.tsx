@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AssetEditorWindow } from '../components/AssetEditorWindow';
 import { InlineRename } from '../components/InlineRename';
+import { NumberInput } from '../components/NumberInput';
 import { useEditorStore } from '../stores/editorStore';
 import { useAssetStore } from '../stores/assetStore';
 
@@ -67,14 +68,14 @@ export function StatusEffectEditorWindow() {
                   <option value="buff">BUFF (增益)</option><option value="debuff">DEBUFF (减益)</option>
                 </select>
               </div>
-              <div><label className="text-xs text-editor-muted block mb-1">持续时间(秒)</label><input className="input-field w-full" type="number" value={selected.duration} onChange={(e) => updateStatus(selected.id, { duration: Number(e.target.value) })} /></div>
-              <div><label className="text-xs text-editor-muted block mb-1">Tick间隔(秒)</label><input className="input-field w-full" type="number" value={selected.tickInterval} onChange={(e) => updateStatus(selected.id, { tickInterval: Number(e.target.value) })} /></div>
+              <div><label className="text-xs text-editor-muted block mb-1">持续时间(秒)</label><NumberInput className="input-field w-full" value={selected.duration} onChange={(v) => updateStatus(selected.id, { duration: v })} /></div>
+              <div><label className="text-xs text-editor-muted block mb-1">Tick间隔(秒)</label><NumberInput className="input-field w-full" value={selected.tickInterval} onChange={(v) => updateStatus(selected.id, { tickInterval: v })} /></div>
               <div><label className="text-xs text-editor-muted block mb-1">可堆叠</label>
                 <select className="input-field w-full" value={String(selected.stackable)} onChange={(e) => updateStatus(selected.id, { stackable: e.target.value === 'true' })}>
                   <option value="true">是</option><option value="false">否</option>
                 </select>
               </div>
-              <div><label className="text-xs text-editor-muted block mb-1">最大层数</label><input className="input-field w-full" type="number" value={selected.maxStacks} onChange={(e) => updateStatus(selected.id, { maxStacks: Number(e.target.value) })} /></div>
+              <div><label className="text-xs text-editor-muted block mb-1">最大层数</label><NumberInput className="input-field w-full" value={selected.maxStacks} onChange={(v) => updateStatus(selected.id, { maxStacks: v })} /></div>
             </div>
             <div className="flex gap-2 items-center">
               <button className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-xs" onClick={() => { deleteStatus(selected.id); setSelectedId(null); }}>删除</button>

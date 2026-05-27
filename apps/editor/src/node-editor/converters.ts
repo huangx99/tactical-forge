@@ -1,6 +1,6 @@
 import type { Node, Edge } from 'reactflow';
-import type { Blueprint, BlueprintNode, BlueprintEdge } from '@tactical-forge/shared';
-import { getNodeType } from './nodeTypes';
+import type { Blueprint, BlueprintNode, BlueprintEdge, DataPinDef } from '@tactical-forge/shared';
+import { getNodeType, DATA_PIN_COLORS } from './nodeTypes';
 
 export interface RFNodeData {
   label: string;
@@ -10,6 +10,13 @@ export interface RFNodeData {
   data: Record<string, unknown>;
   inputs: { id: string; label: string }[];
   outputs: { id: string; label: string }[];
+  dataInputs?: DataPinDef[];
+  dataOutputs?: DataPinDef[];
+  onDataChange?: (key: string, value: unknown) => void;
+}
+
+function isDataHandle(handleId: string | null | undefined): boolean {
+  return handleId?.startsWith('data-in-') || handleId?.startsWith('data-out-') || false;
 }
 
 export function blueprintToReactFlow(blueprint: Blueprint): { nodes: Node<RFNodeData>[]; edges: Edge[] } {
@@ -25,22 +32,42 @@ export function blueprintToReactFlow(blueprint: Blueprint): { nodes: Node<RFNode
         category: typeDef?.category ?? 'action',
         color: typeDef?.color ?? '#3b82f6',
         data: n.data,
-        inputs: typeDef?.inputs ?? [{ id: 'in', label: '输入' }],
-        outputs: typeDef?.outputs ?? [{ id: 'out', label: '输出' }],
+        inputs: typeDef?.inputs ?? [{ id: 'in', label: '执行' }],
+        outputs: typeDef?.outputs ?? [{ id: 'out', label: '完成' }],
+        dataInputs: typeDef?.dataInputs ? [...typeDef.dataInputs] : undefined,
+        dataOutputs: typeDef?.dataOutputs ? [...typeDef.dataOutputs] : undefined,
       },
     };
   });
 
-  const edges: Edge[] = blueprint.edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    sourceHandle: e.sourcePort,
-    target: e.target,
-    targetHandle: e.targetPort,
-    type: 'smoothstep',
-    animated: true,
-    style: { stroke: '#64748b', strokeWidth: 2 },
-  }));
+  const edges: Edge[] = blueprint.edges.map((e) => {
+    const isData = e.type === 'data';
+    // Determine data pin color from source node's data output
+    let strokeColor = '#64748b';
+    if (isData) {
+      const sourceNode = blueprint.nodes.find(n => n.id === e.source);
+      if (sourceNode) {
+        const typeDef = getNodeType(sourceNode.type);
+        const dataOut = typeDef?.dataOutputs?.find(d => `data-out-${d.id}` === e.sourcePort);
+        if (dataOut) {
+          strokeColor = DATA_PIN_COLORS[dataOut.dataType] ?? DATA_PIN_COLORS.any;
+        }
+      }
+    }
+    return {
+      id: e.id,
+      source: e.source,
+      sourceHandle: e.sourcePort,
+      target: e.target,
+      targetHandle: e.targetPort,
+      type: isData ? 'default' : 'smoothstep',
+      animated: !isData,
+      style: {
+        stroke: strokeColor,
+        strokeWidth: isData ? 1.5 : 2,
+      },
+    };
+  });
 
   return { nodes, edges };
 }
@@ -63,6 +90,7 @@ export function reactFlowToBlueprint(
     sourcePort: e.sourceHandle ?? 'out',
     target: e.target,
     targetPort: e.targetHandle ?? 'in',
+    type: isDataHandle(e.sourceHandle) || isDataHandle(e.targetHandle) ? 'data' : 'execution',
   }));
 
   return {

@@ -17,7 +17,7 @@ import 'reactflow/dist/style.css';
 
 import BlueprintNodeComponent from '../node-editor/BlueprintNodeComponent';
 import { blueprintToReactFlow, reactFlowToBlueprint, type RFNodeData } from '../node-editor/converters';
-import { NODE_REGISTRY, CATEGORY_LABELS, CATEGORY_COLORS, getNodeType } from '../node-editor/nodeTypes';
+import { NODE_REGISTRY, CATEGORY_LABELS, CATEGORY_COLORS, getNodeType, DATA_PIN_COLORS } from '../node-editor/nodeTypes';
 import { useBlueprintStore } from '../stores/blueprintStore';
 import { useEditorStore } from '../stores/editorStore';
 import { AssetEditorWindow } from '../components/AssetEditorWindow';
@@ -25,6 +25,10 @@ import { InlineRename } from '../components/InlineRename';
 import { generateId } from '@tactical-forge/shared';
 
 const nodeTypes = { blueprintNode: BlueprintNodeComponent };
+
+function isDataHandle(handleId: string | null | undefined): boolean {
+  return !!handleId && (handleId.startsWith('data-in-') || handleId.startsWith('data-out-'));
+}
 
 function BlueprintEditor() {
   const {
@@ -50,6 +54,15 @@ function BlueprintEditor() {
   useMemo(() => {
     if (activeBlueprint) {
       const { nodes, edges } = blueprintToReactFlow(activeBlueprint);
+      // Attach data change callback to each node
+      for (const node of nodes) {
+        const nodeId = node.id;
+        node.data.onDataChange = (key: string, value: unknown) => {
+          if (activeBlueprintId) updateNodeData(activeBlueprintId, nodeId, { [key]: value });
+          // Also update local ReactFlow state so the input reflects the change
+          setRfNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, data: { ...n.data.data, [key]: value } } } : n));
+        };
+      }
       setRfNodes(nodes);
       setRfEdges(edges);
     } else {
@@ -66,12 +79,25 @@ function BlueprintEditor() {
   }, [activeBlueprintId, activeBlueprint]);
 
   const onConnect = useCallback((connection: Connection) => {
+    const isData = isDataHandle(connection.sourceHandle) || isDataHandle(connection.targetHandle);
+    let strokeColor = '#64748b';
+    if (isData && connection.source) {
+      const sourceNode = rfNodes.find(n => n.id === connection.source);
+      if (sourceNode) {
+        const typeDef = getNodeType(sourceNode.data.nodeType);
+        const dataOutId = connection.sourceHandle?.replace('data-out-', '');
+        const dataOut = typeDef?.dataOutputs?.find(d => d.id === dataOutId);
+        if (dataOut) {
+          strokeColor = DATA_PIN_COLORS[dataOut.dataType] ?? DATA_PIN_COLORS.any;
+        }
+      }
+    }
     const newEdge = {
       ...connection,
       id: `e-${generateId()}`,
-      type: 'smoothstep',
-      animated: true,
-      style: { stroke: '#64748b', strokeWidth: 2 },
+      type: isData ? 'default' : 'smoothstep',
+      animated: !isData,
+      style: { stroke: strokeColor, strokeWidth: isData ? 1.5 : 2 },
     };
     setRfEdges((eds) => {
       const updated = addEdge(newEdge, eds);
@@ -79,6 +105,22 @@ function BlueprintEditor() {
       return updated;
     });
   }, [rfNodes, syncToBlueprint]);
+
+  const isValidConnection = useCallback((connection: Connection) => {
+    const srcIsData = isDataHandle(connection.sourceHandle);
+    const tgtIsData = isDataHandle(connection.targetHandle);
+    // Don't allow connecting data to execution or vice versa
+    if (srcIsData !== tgtIsData) return false;
+    // Don't allow self-connections
+    if (connection.source === connection.target) return false;
+    // Don't allow connecting same direction
+    if (srcIsData && tgtIsData) {
+      // data-out -> data-in only
+      if (!connection.sourceHandle?.startsWith('data-out-')) return false;
+      if (!connection.targetHandle?.startsWith('data-in-')) return false;
+    }
+    return true;
+  }, []);
 
   const handleNodeClick = useCallback((_: React.MouseEvent, node: Node<RFNodeData>) => {
     setSelectedNodeId(node.id);
@@ -117,8 +159,9 @@ function BlueprintEditor() {
     const flowPos = rfInstance.screenToFlowPosition({ x: menuScreenPos.x, y: menuScreenPos.y });
     setShowNodeMenu(false);
 
+    const nodeId = generateId();
     const newNode: Node<RFNodeData> = {
-      id: generateId(),
+      id: nodeId,
       type: 'blueprintNode',
       position: { x: flowPos.x - 80, y: flowPos.y - 30 },
       data: {
@@ -126,9 +169,30 @@ function BlueprintEditor() {
         nodeType: typeDef.type,
         category: typeDef.category,
         color: typeDef.color,
-        data: { ...(typeDef.defaultData ?? {}) },
+        data: (() => {
+          const d: Record<string, unknown> = {};
+          // Initialize defaults from dataInputs
+          for (const pin of typeDef.dataInputs ?? []) {
+            if (pin.defaultValue !== undefined) d[pin.id] = pin.defaultValue;
+          }
+          // Initialize value nodes with type-appropriate defaults
+          for (const pin of typeDef.dataOutputs ?? []) {
+            if (!(pin.id in d)) {
+              if (pin.dataType === 'number') d[pin.id] = 0;
+              else if (pin.dataType === 'boolean') d[pin.id] = false;
+              else if (pin.dataType === 'string') d[pin.id] = '';
+            }
+          }
+          return d;
+        })(),
         inputs: typeDef.inputs,
         outputs: typeDef.outputs,
+        dataInputs: typeDef.dataInputs ? [...typeDef.dataInputs] : undefined,
+        dataOutputs: typeDef.dataOutputs ? [...typeDef.dataOutputs] : undefined,
+        onDataChange: (key: string, value: unknown) => {
+          if (activeBlueprintId) updateNodeData(activeBlueprintId, nodeId, { [key]: value });
+          setRfNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, data: { ...n.data.data, [key]: value } } } : n));
+        },
       },
     };
 
@@ -240,7 +304,13 @@ function BlueprintEditor() {
               edges={rfEdges}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
+              deleteKeyCode={['Backspace', 'Delete']}
+              onEdgesDelete={(deleted) => {
+                const remaining = rfEdges.filter((e) => !deleted.some((d) => d.id === e.id));
+                syncToBlueprint(rfNodes, remaining);
+              }}
               onConnect={onConnect}
+              isValidConnection={isValidConnection}
               onNodeClick={handleNodeClick}
               onPaneClick={handlePaneClick}
               onPaneContextMenu={handlePaneContextMenu}

@@ -2,14 +2,40 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { Blueprint, BlueprintNode, BlueprintEdge } from '@tactical-forge/shared';
 import { generateId } from '@tactical-forge/shared';
+import { DEFAULT_BLUEPRINT_TEMPLATES } from '../blueprints/defaultTemplates';
 
 const STORAGE_KEY = 'tf-blueprints';
+const TEMPLATE_VERSION_KEY = 'tf-blueprint-template-version';
+const TEMPLATE_VERSION = 5; // 递增此版本号以强制刷新默认模板
 
 function loadFromStorage(): Blueprint[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+    let existing: Blueprint[] = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(existing)) existing = [];
+
+    const storedVersion = Number(localStorage.getItem(TEMPLATE_VERSION_KEY)) || 0;
+    if (storedVersion < TEMPLATE_VERSION) {
+      // 模板版本更新，用新模板替换旧的默认模板，保留用户自建蓝图
+      const templateIds = new Set(DEFAULT_BLUEPRINT_TEMPLATES.map((t) => t.id));
+      const userBlueprints = existing.filter((b) => !templateIds.has(b.id));
+      const merged = [...userBlueprints, ...DEFAULT_BLUEPRINT_TEMPLATES];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      localStorage.setItem(TEMPLATE_VERSION_KEY, String(TEMPLATE_VERSION));
+      return merged;
+    }
+
+    // 始终确保默认模板存在（按 ID 去重）
+    const existingIds = new Set(existing.map((b) => b.id));
+    const missing = DEFAULT_BLUEPRINT_TEMPLATES.filter((t) => !existingIds.has(t.id));
+    if (missing.length > 0) {
+      const merged = [...existing, ...missing];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      localStorage.setItem(TEMPLATE_VERSION_KEY, String(TEMPLATE_VERSION));
+      return merged;
+    }
+    return existing;
+  } catch { return [...DEFAULT_BLUEPRINT_TEMPLATES]; }
 }
 
 function saveToStorage(blueprints: Blueprint[]) {

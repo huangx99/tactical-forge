@@ -4,12 +4,17 @@ import { useProjectStore } from '../stores/projectStore';
 import { useSceneStore } from '../stores/sceneStore';
 import { useTilemapStore } from '../stores/tilemapStore';
 
+type DragAxis = 'x' | 'y' | 'both' | null;
+
+const GIZMO_LEN = 50;
+const GIZMO_HIT = 10;
+
 export function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { isPlaying, selectObject, selectedObjectId } = useEditorStore();
   const { project } = useProjectStore();
-  const { scenes, activeSceneId, addObject } = useSceneStore();
+  const { scenes, activeSceneId, addObject, updateObject } = useSceneStore();
   const {
     activeTool, selectedTileIndex, showGrid,
     tilemaps, setTile, eraseTile, fillTiles,
@@ -21,6 +26,15 @@ export function GameCanvas() {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+
+  // Drag state
+  const dragRef = useRef<{
+    axis: DragAxis;
+    objId: string;
+    startMouse: { x: number; y: number };
+    startObjPos: { x: number; y: number };
+  } | null>(null);
+  const [dragAxis, setDragAxis] = useState<DragAxis>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -49,6 +63,38 @@ export function GameCanvas() {
       y: Math.floor(worldY / project.tileSize),
     };
   }, [cameraOffset, zoom, project.tileSize]);
+
+  // Check if screen point hits a gizmo axis
+  const hitTestGizmo = useCallback((screenX: number, screenY: number): DragAxis => {
+    if (!selectedObjectId || !activeSceneId) return null;
+    const activeScene = scenes.find((s) => s.id === activeSceneId);
+    if (!activeScene) return null;
+
+    let obj: { position: { x: number; y: number } } | undefined;
+    for (const layer of activeScene.layers) {
+      if (layer.type !== 'object') continue;
+      obj = layer.objects.find((o) => o.id === selectedObjectId);
+      if (obj) break;
+    }
+    if (!obj) return null;
+
+    const cx = obj.position.x * zoom + cameraOffset.x;
+    const cy = obj.position.y * zoom + cameraOffset.y;
+    const len = GIZMO_LEN * zoom;
+
+    // X axis: horizontal line from (cx, cy) to (cx + len, cy)
+    const dx = screenX - cx;
+    const dy = screenY - cy;
+    if (dx >= -4 && dx <= len + 4 && Math.abs(dy) <= GIZMO_HIT) return 'x';
+
+    // Y axis: vertical line from (cx, cy) to (cx, cy + len)
+    if (dy >= -4 && dy <= len + 4 && Math.abs(dx) <= GIZMO_HIT) return 'y';
+
+    // Object body (free drag)
+    if (Math.abs(dx) <= 16 && Math.abs(dy) <= 16) return 'both';
+
+    return null;
+  }, [selectedObjectId, activeSceneId, scenes, cameraOffset, zoom]);
 
   // Render
   useEffect(() => {
@@ -111,7 +157,6 @@ export function GameCanvas() {
           const isSelected = obj.id === selectedObjectId;
           const size = 24;
 
-          // Object body
           ctx.fillStyle =
             obj.type === 'player' ? '#4ade80' :
             obj.type === 'npc' ? '#60a5fa' :
@@ -121,11 +166,56 @@ export function GameCanvas() {
 
           ctx.fillRect(obj.position.x - size / 2, obj.position.y - size / 2, size, size);
 
-          // Selection
           if (isSelected) {
             ctx.strokeStyle = '#e94560';
             ctx.lineWidth = 2 / zoom;
             ctx.strokeRect(obj.position.x - size / 2 - 3, obj.position.y - size / 2 - 3, size + 6, size + 6);
+
+            // Draw gizmo axes
+            const lw = 2 / zoom;
+            const headLen = 8 / zoom;
+
+            // X axis (red)
+            ctx.strokeStyle = dragAxis === 'x' ? '#ff6b6b' : '#ef4444';
+            ctx.lineWidth = lw;
+            ctx.beginPath();
+            ctx.moveTo(obj.position.x, obj.position.y);
+            ctx.lineTo(obj.position.x + GIZMO_LEN, obj.position.y);
+            ctx.stroke();
+            // X arrowhead
+            ctx.fillStyle = dragAxis === 'x' ? '#ff6b6b' : '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(obj.position.x + GIZMO_LEN, obj.position.y);
+            ctx.lineTo(obj.position.x + GIZMO_LEN - headLen, obj.position.y - headLen * 0.6);
+            ctx.lineTo(obj.position.x + GIZMO_LEN - headLen, obj.position.y + headLen * 0.6);
+            ctx.closePath();
+            ctx.fill();
+            // X label
+            ctx.fillStyle = '#ef4444';
+            ctx.font = `bold ${10 / zoom}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText('X', obj.position.x + GIZMO_LEN + 10 / zoom, obj.position.y + 4 / zoom);
+
+            // Y axis (green)
+            ctx.strokeStyle = dragAxis === 'y' ? '#6bff6b' : '#22c55e';
+            ctx.lineWidth = lw;
+            ctx.beginPath();
+            ctx.moveTo(obj.position.x, obj.position.y);
+            ctx.lineTo(obj.position.x, obj.position.y + GIZMO_LEN);
+            ctx.stroke();
+            // Y arrowhead
+            ctx.fillStyle = dragAxis === 'y' ? '#6bff6b' : '#22c55e';
+            ctx.beginPath();
+            ctx.moveTo(obj.position.x, obj.position.y + GIZMO_LEN);
+            ctx.lineTo(obj.position.x - headLen * 0.6, obj.position.y + GIZMO_LEN - headLen);
+            ctx.lineTo(obj.position.x + headLen * 0.6, obj.position.y + GIZMO_LEN - headLen);
+            ctx.closePath();
+            ctx.fill();
+            // Y label
+            ctx.fillStyle = '#22c55e';
+            ctx.font = `bold ${10 / zoom}px sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.fillText('Y', obj.position.x + 4 / zoom, obj.position.y + GIZMO_LEN + 12 / zoom);
           }
 
           // Label
@@ -156,7 +246,7 @@ export function GameCanvas() {
     const toolNames = { select: '选择', paint: '画笔', erase: '橡皮擦', fill: '填充', object: '放置' };
     ctx.fillText(`工具: ${toolNames[activeTool]}`, 10, canvas.height - 10);
   }, [canvasSize, scenes, activeSceneId, isPlaying, project.tileSize, selectedObjectId,
-      currentTilemap, activeTileset, showGrid, activeTool, cameraOffset, zoom]);
+      currentTilemap, activeTileset, showGrid, activeTool, cameraOffset, zoom, dragAxis]);
 
   const handleTileAction = useCallback((x: number, y: number) => {
     if (!activeSceneId || !tilemapLayerId) return;
@@ -184,10 +274,31 @@ export function GameCanvas() {
 
     if (isPlaying) return;
 
-    if (activeTool === 'paint' || activeTool === 'erase' || activeTool === 'fill') {
-      setIsDrawing(true);
-      handleTileAction(x, y);
-    } else if (activeTool === 'select') {
+    if (activeTool === 'select') {
+      // Check gizmo hit first
+      const axis = hitTestGizmo(x, y);
+      if (axis && selectedObjectId) {
+        const activeScene = scenes.find((s) => s.id === activeSceneId);
+        if (activeScene) {
+          let obj: { position: { x: number; y: number } } | undefined;
+          for (const layer of activeScene.layers) {
+            if (layer.type !== 'object') continue;
+            obj = layer.objects.find((o) => o.id === selectedObjectId);
+            if (obj) break;
+          }
+          if (obj) {
+            dragRef.current = {
+              axis,
+              objId: selectedObjectId,
+              startMouse: { x, y },
+              startObjPos: { ...obj.position },
+            };
+            setDragAxis(axis);
+            return;
+          }
+        }
+      }
+
       // Check object click
       const activeScene = scenes.find((s) => s.id === activeSceneId);
       if (activeScene) {
@@ -198,12 +309,23 @@ export function GameCanvas() {
           for (const obj of layer.objects) {
             if (Math.abs(obj.position.x - worldX) < 16 && Math.abs(obj.position.y - worldY) < 16) {
               selectObject(obj.id);
+              // Start free drag
+              dragRef.current = {
+                axis: 'both',
+                objId: obj.id,
+                startMouse: { x, y },
+                startObjPos: { ...obj.position },
+              };
+              setDragAxis('both');
               return;
             }
           }
         }
       }
       selectObject(null);
+    } else if (activeTool === 'paint' || activeTool === 'erase' || activeTool === 'fill') {
+      setIsDrawing(true);
+      handleTileAction(x, y);
     } else if (activeTool === 'object' && activeSceneId) {
       const worldX = Math.round((x - cameraOffset.x) / zoom);
       const worldY = Math.round((y - cameraOffset.y) / zoom);
@@ -217,17 +339,34 @@ export function GameCanvas() {
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Handle drag
+    if (dragRef.current && activeSceneId) {
+      const drag = dragRef.current;
+      const dx = (x - drag.startMouse.x) / zoom;
+      const dy = (y - drag.startMouse.y) / zoom;
+      const newPos = { ...drag.startObjPos };
+      if (drag.axis === 'x' || drag.axis === 'both') newPos.x = Math.round(drag.startObjPos.x + dx);
+      if (drag.axis === 'y' || drag.axis === 'both') newPos.y = Math.round(drag.startObjPos.y + dy);
+      updateObject(activeSceneId, drag.objId, { position: newPos });
+      return;
+    }
+
     if (isPanning) {
       setCameraOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
       return;
     }
     if (isDrawing && (activeTool === 'paint' || activeTool === 'erase')) {
-      const rect = canvasRef.current!.getBoundingClientRect();
-      handleTileAction(e.clientX - rect.left, e.clientY - rect.top);
+      handleTileAction(x, y);
     }
   };
 
   const handleMouseUp = () => {
+    dragRef.current = null;
+    setDragAxis(null);
     setIsDrawing(false);
     setIsPanning(false);
   };
@@ -264,7 +403,7 @@ export function GameCanvas() {
         width={canvasSize.width}
         height={canvasSize.height}
         className="absolute inset-0"
-        style={{ cursor: isPanning ? 'grabbing' : activeTool === 'paint' ? 'crosshair' : activeTool === 'erase' ? 'cell' : 'default' }}
+        style={{ cursor: dragAxis === 'x' ? 'ew-resize' : dragAxis === 'y' ? 'ns-resize' : dragAxis === 'both' ? 'move' : isPanning ? 'grabbing' : activeTool === 'paint' ? 'crosshair' : activeTool === 'erase' ? 'cell' : 'default' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
